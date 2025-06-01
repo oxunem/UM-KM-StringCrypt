@@ -11,8 +11,6 @@
 // Usage:
 //    const char* secret = ENC_STR("Hello World!");
 //    const wchar_t* secretW = ENC_WSTR(L"Hello World!");
-//
-// Works in User Mode applications, relying on <cstdint>, <cstddef>.
 // ------------------------------------------------------------
 
 #ifdef _KERNEL_MODE
