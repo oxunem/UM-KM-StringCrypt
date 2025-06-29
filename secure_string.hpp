@@ -1,4 +1,4 @@
-// Secure compile-time string encryption for User Mode (C++17+)
+// Secure compile-time string encryption (C++17+)
 // Author: oxunem (https://github.com/oxunem)
 // License: MIT
 
