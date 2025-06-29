@@ -13,22 +13,10 @@
 //    const wchar_t* secretW = ENC_WSTR(L"Hello World!");
 // ------------------------------------------------------------
 
-#ifdef _KERNEL_MODE
-#include <ntddk.h>
-using uint8_t = UCHAR;
-using uint64_t = ULONGLONG;
-using size_t = SIZE_T;
-#define FORCEINLINE __forceinline
-#else
-#include <cstdint>
-#include <cstddef>
-#define FORCEINLINE __forceinline
-#endif
-
 // Rotate left 8-bit
-#define ROL8(x, r) ((uint8_t)(((x) << ((r) % 8)) | ((x) >> (8 - ((r) % 8)))))
+#define ROL8(x, r) ((unsigned char)(((x) << ((r) % 8)) | ((x) >> (8 - ((r) % 8)))))
 // Rotate right 8-bit
-#define ROR8(x, r) ((uint8_t)(((x) >> ((r) % 8)) | ((x) << (8 - ((r) % 8)))))
+#define ROR8(x, r) ((unsigned char)(((x) >> ((r) % 8)) | ((x) << (8 - ((r) % 8)))))
 
 // Generate a unique seed based on compile time macros.
 // Helps to have different seeds per compilation unit/line/time.
@@ -40,58 +28,58 @@ using size_t = SIZE_T;
      ((__COUNTER__ % 256) * 0xCAFEBABEDEADBEEFULL))
 
 // Compile-time Key Generator
-template<size_t N, uint64_t Seed, size_t Round = 0>
+template<unsigned __int64 N, unsigned long long Seed, unsigned __int64 Round = 0>
 struct KeyGen {
 private:
-    static constexpr uint64_t mix(uint64_t x) {
+    static constexpr unsigned long long mix(unsigned long long x) {
         x ^= x >> 33; x *= 0xD6E8FEB86659FD93ULL;
         x ^= x >> 33; x *= 0xA5CB3E2C1F16F4C5ULL;
         return x ^ (x >> 33);
     }
 
-    static constexpr uint8_t get_byte(size_t index) {
-        constexpr uint64_t magic = 0x3C6EF372FE94F82BULL;
-        uint64_t val = Seed ^ (index * magic);
+    static constexpr unsigned char get_byte(unsigned __int64 index) {
+        constexpr unsigned long long magic = 0x3C6EF372FE94F82BULL;
+        unsigned long long val = Seed ^ (index * magic);
         val = mix(val) ^ (Round * 0x0F1E2D3C4B5A6978ULL);
         val = (val >> 32) ^ (val & 0xFFFFFFFF);
-        return static_cast<uint8_t>((val ^ (val >> 16) ^ (val >> 8)));
+        return static_cast<unsigned char>((val ^ (val >> 16) ^ (val >> 8)));
     }
 
 public:
-    static constexpr uint8_t get(size_t index) {
-        uint8_t k = get_byte(index) ^ get_byte(N - index - 1 + Round);
+    static constexpr unsigned char get(unsigned __int64 index) {
+        unsigned char k = get_byte(index) ^ get_byte(N - index - 1 + Round);
         return ROL8(k ^ index ^ (Seed & 0xFF), (index + Round) % 8 + 1);
     }
 };
 
 // SecureString encrypts characters at compile-time and decrypts at runtime
-template<typename CharT, size_t N, uint64_t Seed>
+template<typename CharT, unsigned __int64 N, unsigned long long Seed>
 class SecureString {
 private:
     CharT encrypted[N];
 
-    static constexpr CharT obfuscate(CharT c, size_t i) {
-        uint8_t k1 = KeyGen<N, Seed>::get(i);
-        uint8_t k2 = KeyGen<N, Seed ^ 0xBAADF00DDEADC0DEULL>::get(N - i - 1);
-        uint8_t k3 = KeyGen<N, Seed ^ 0xFEEDBABECAFED00DULL>::get((i * i) % N);
+    static constexpr CharT obfuscate(CharT c, unsigned __int64 i) {
+        unsigned char k1 = KeyGen<N, Seed>::get(i);
+        unsigned char k2 = KeyGen<N, Seed ^ 0xBAADF00DDEADC0DEULL>::get(N - i - 1);
+        unsigned char k3 = KeyGen<N, Seed ^ 0xFEEDBABECAFED00DULL>::get((i * i) % N);
 
-        uint8_t tmp = static_cast<uint8_t>(c) ^ k1;
+        unsigned char tmp = static_cast<unsigned char>(c) ^ k1;
         tmp = ROL8(tmp, (k2 % 7) + 1);
         tmp = ~(tmp + (k2 ^ k3));
-        tmp ^= 0x5A;
+        tmp ^= 0xA5;
         tmp = ROR8(tmp, (i + k3) % 8);
 
         return static_cast<CharT>(tmp);
     }
 
-    static constexpr CharT deobfuscate(CharT c, size_t i) {
-        uint8_t k1 = KeyGen<N, Seed>::get(i);
-        uint8_t k2 = KeyGen<N, Seed ^ 0xBAADF00DDEADC0DEULL>::get(N - i - 1);
-        uint8_t k3 = KeyGen<N, Seed ^ 0xFEEDBABECAFED00DULL>::get((i * i) % N);
+    static constexpr CharT deobfuscate(CharT c, unsigned __int64 i) {
+        unsigned char k1 = KeyGen<N, Seed>::get(i);
+        unsigned char k2 = KeyGen<N, Seed ^ 0xBAADF00DDEADC0DEULL>::get(N - i - 1);
+        unsigned char k3 = KeyGen<N, Seed ^ 0xFEEDBABECAFED00DULL>::get((i * i) % N);
 
-        uint8_t tmp = static_cast<uint8_t>(c);
+        unsigned char tmp = static_cast<unsigned char>(c);
         tmp = ROL8(tmp, (i + k3) % 8);
-        tmp ^= 0x5A;
+        tmp ^= 0xA5;
         tmp = ~(tmp) - (k2 ^ k3);
         tmp = ROR8(tmp, (k2 % 7) + 1);
         tmp ^= k1;
@@ -101,17 +89,17 @@ private:
 
 public:
     constexpr SecureString(const CharT(&input)[N]) : encrypted{} {
-        for (size_t i = 0; i < N; ++i)
+        for (unsigned __int64 i = 0; i < N; ++i)
             encrypted[i] = obfuscate(input[i], i);
     }
 
     // Decrypt into out buffer (must be at least N elements)
-    FORCEINLINE void decrypt(CharT* out) const {
-        for (size_t i = 0; i < N; ++i)
+    __forceinline void decrypt(CharT* out) const {
+        for (unsigned __int64 i = 0; i < N; ++i)
             out[i] = deobfuscate(encrypted[i], i);
     }
 
-    constexpr size_t size() const { return N; }
+    constexpr unsigned __int64 size() const { return N; }
 };
 
 // Helper macro to create an encrypted const char* string.
