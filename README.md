@@ -42,7 +42,7 @@ The unique encryption key varies by compilation unit, line number, and compilati
 
 ### Integration
 
-Simply add the `SecureString.hpp` header file to your project (e.g., place in your `include/` directory), then include it where needed:
+Simply add the `secure_string.hpp` header file to your project (e.g., place in your `include/` directory), then include it where needed:
 
 ```cpp
-#include "SecureString.hpp"
+#include "secure_string.hpp"
